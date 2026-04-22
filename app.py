@@ -1,3 +1,4 @@
+import news_engine
 import streamlit as st
 import pandas as pd
 import data_fetcher
