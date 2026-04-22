@@ -13,7 +13,6 @@ import config
 
 @st.cache_data(ttl=300)
 def get_indices():
-    """Fetch current index values and % change."""
     results = []
     for name, symbol in config.INDICES.items():
         try:
@@ -29,17 +28,12 @@ def get_indices():
                     "Change %": round(change_pct, 2),
                 })
         except Exception:
-            results.append({
-                "Index": name,
-                "Value": "N/A",
-                "Change %": 0
-            })
+            results.append({"Index": name, "Value": "N/A", "Change %": 0})
     return pd.DataFrame(results)
 
 
 @st.cache_data(ttl=300)
 def get_top_stocks():
-    """Fetch top stocks with price and % change."""
     results = []
     for symbol in config.TOP_STOCKS:
         try:
@@ -55,17 +49,12 @@ def get_top_stocks():
                     "Change %": round(change_pct, 2),
                 })
         except Exception:
-            results.append({
-                "Stock": symbol.replace(".NS", ""),
-                "Price (₹)": "N/A",
-                "Change %": 0
-            })
+            results.append({"Stock": symbol.replace(".NS", ""), "Price (₹)": "N/A", "Change %": 0})
     return pd.DataFrame(results)
 
 
 @st.cache_data(ttl=300)
 def get_news():
-    """Fetch news from RSS feeds."""
     articles = []
     for url in config.NEWS_FEEDS:
         try:
@@ -93,7 +82,6 @@ def get_news():
 
 @st.cache_data(ttl=300)
 def get_ipo_data():
-    """Fetch IPO data for open, upcoming, and announced."""
     ipos = []
     statuses = ["open", "upcoming", "announced"]
 
@@ -114,16 +102,16 @@ def get_ipo_data():
                 })
 
         df = pd.DataFrame(ipos)
-        if df.empty:
-    return pd.DataFrame([{
-        "Company": "No IPO data found",
-        "Open": "",
-        "Close": "",
-        "Price Band": "",
-        "Status": ""
-    }])
 
-        # optional sorting
+        if df.empty:
+            return pd.DataFrame([{
+                "Company": "No IPO data found",
+                "Open": "",
+                "Close": "",
+                "Price Band": "",
+                "Status": ""
+            }])
+
         order = {"Open": 0, "Upcoming": 1, "Announced": 2}
         df["order"] = df["Status"].map(order)
         df = df.sort_values("order").drop(columns=["order"])
@@ -138,7 +126,6 @@ def get_ipo_data():
             "Price Band": "",
             "Status": ""
         }])
-
 
 
 def get_last_updated():
