@@ -38,14 +38,20 @@ if not stocks_df.empty:
     st.dataframe(stocks_df, use_container_width=True, hide_index=True)
 
 st.divider()
-st.subheader("📰 Latest Market News")
+import news_engine  # add this at top if not already
+
+st.subheader("📰 Market News (Clustered)")
+
 with st.spinner("Loading news..."):
-    news = data_fetcher.get_news()
+    news = news_engine.get_clustered_news()
 
 if news:
-    for article in news:
-        st.markdown(f"**[{article['Title']}]({article['Link']})**")
-        st.caption(f"🗞 {article['Source']}  •  {article['Published']}")
+    for story in news:
+        st.markdown(f"### {story['headline']}")
+
+        for src in story["sources"]:
+            st.markdown(f"- [{src['source']}]({src['link']})")
+
         st.divider()
 else:
     st.info("No news available at the moment.")
