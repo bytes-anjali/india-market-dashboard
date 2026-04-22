@@ -5,9 +5,13 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import sys
 import os
+import streamlit as st
+
 sys.path.insert(0, os.path.dirname(__file__))
 import config
 
+
+@st.cache_data(ttl=300)
 def get_indices():
     """Fetch current index values and % change."""
     results = []
@@ -24,10 +28,16 @@ def get_indices():
                     "Value": round(curr_close, 2),
                     "Change %": round(change_pct, 2),
                 })
-        except Exception as e:
-            results.append({"Index": name, "Value": "N/A", "Change %": 0})
+        except Exception:
+            results.append({
+                "Index": name,
+                "Value": "N/A",
+                "Change %": 0
+            })
     return pd.DataFrame(results)
 
+
+@st.cache_data(ttl=300)
 def get_top_stocks():
     """Fetch top stocks with price and % change."""
     results = []
@@ -35,7 +45,6 @@ def get_top_stocks():
         try:
             ticker = yf.Ticker(symbol)
             hist = ticker.history(period="2d")
-            info = ticker.fast_info
             if len(hist) >= 2:
                 prev_close = hist["Close"].iloc[-2]
                 curr_close = hist["Close"].iloc[-1]
@@ -45,21 +54,30 @@ def get_top_stocks():
                     "Price (₹)": round(curr_close, 2),
                     "Change %": round(change_pct, 2),
                 })
-        except Exception as e:
-            results.append({"Stock": symbol, "Price (₹)": "N/A", "Change %": 0})
+        except Exception:
+            results.append({
+                "Stock": symbol.replace(".NS", ""),
+                "Price (₹)": "N/A",
+                "Change %": 0
+            })
     return pd.DataFrame(results)
 
+
+@st.cache_data(ttl=300)
 def get_news():
     """Fetch news from RSS feeds."""
     articles = []
     for url in config.NEWS_FEEDS:
         try:
             resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
             root = ET.fromstring(resp.content)
+
             for item in root.findall(".//item")[:10]:
                 title = item.findtext("title", "").strip()
                 link = item.findtext("link", "").strip()
                 pub_date = item.findtext("pubDate", "").strip()
+
                 if title and link:
                     articles.append({
                         "Title": title,
@@ -67,10 +85,13 @@ def get_news():
                         "Published": pub_date,
                         "Source": url.split("/")[2].replace("www.", "")
                     })
-        except Exception as e:
+        except Exception:
             continue
+
     return articles[:config.MAX_NEWS]
 
+
+@st.cache_data(ttl=300)
 def get_ipo_data():
     """Fetch IPO data from NSE."""
     ipos = []
@@ -78,7 +99,9 @@ def get_ipo_data():
         headers = {"User-Agent": "Mozilla/5.0"}
         url = "https://www.nseindia.com/api/ipo-current-allotment"
         resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
         data = resp.json()
+
         for item in data.get("data", []):
             ipos.append({
                 "Company": item.get("companyName", ""),
@@ -88,10 +111,16 @@ def get_ipo_data():
                 "Status": item.get("status", ""),
             })
     except Exception:
-        # Fallback placeholder if NSE blocks request
-        ipos = [{"Company": "Data unavailable - NSE may require login", 
-                 "Open": "", "Close": "", "Price Band": "", "Status": ""}]
+        ipos = [{
+            "Company": "Data unavailable - NSE may require login",
+            "Open": "",
+            "Close": "",
+            "Price Band": "",
+            "Status": ""
+        }]
+
     return pd.DataFrame(ipos)
+
 
 def get_last_updated():
     return datetime.now().strftime("%d %b %Y, %I:%M %p")
