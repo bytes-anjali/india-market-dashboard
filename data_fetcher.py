@@ -93,33 +93,52 @@ def get_news():
 
 @st.cache_data(ttl=300)
 def get_ipo_data():
-    """Fetch IPO data from NSE."""
+    """Fetch IPO data for open, upcoming, and announced."""
     ipos = []
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        url = "https://www.nseindia.com/api/ipo-current-allotment"
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+    statuses = ["open", "upcoming", "announced"]
 
-        for item in data.get("data", []):
-            ipos.append({
-                "Company": item.get("companyName", ""),
-                "Open": item.get("ipoOpenDate", ""),
-                "Close": item.get("ipoCloseDate", ""),
-                "Price Band": item.get("priceBand", ""),
-                "Status": item.get("status", ""),
-            })
+    try:
+        for status in statuses:
+            url = f"https://api.ipoalerts.in/ipos?status={status}"
+            resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+
+            for item in data:
+                ipos.append({
+                    "Company": item.get("company_name", ""),
+                    "Open": item.get("open_date", ""),
+                    "Close": item.get("close_date", ""),
+                    "Price Band": item.get("price_band", ""),
+                    "Status": status.capitalize(),
+                })
+
+        df = pd.DataFrame(ipos)
+        if df.empty:
+    return pd.DataFrame([{
+        "Company": "No IPO data found",
+        "Open": "",
+        "Close": "",
+        "Price Band": "",
+        "Status": ""
+    }])
+
+        # optional sorting
+        order = {"Open": 0, "Upcoming": 1, "Announced": 2}
+        df["order"] = df["Status"].map(order)
+        df = df.sort_values("order").drop(columns=["order"])
+
+        return df
+
     except Exception:
-        ipos = [{
-            "Company": "Data unavailable - NSE may require login",
+        return pd.DataFrame([{
+            "Company": "IPO data unavailable",
             "Open": "",
             "Close": "",
             "Price Band": "",
             "Status": ""
-        }]
+        }])
 
-    return pd.DataFrame(ipos)
 
 
 def get_last_updated():
