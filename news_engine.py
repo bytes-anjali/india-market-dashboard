@@ -3,7 +3,10 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from difflib import SequenceMatcher
 import re
+import numpy as np
+from pytrends.request import TrendReq
 
+pytrends = TrendReq(hl="en-IN", tz=330)
 
 NEWS_SOURCES = {
     "Business Standard": "https://www.business-standard.com/rss/markets-106.rss",
@@ -22,6 +25,38 @@ def normalize_text(text):
 
 def title_similarity(a, b):
     return SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
+
+
+def extract_keyword(title):
+    words = normalize_text(title).split()
+    return " ".join(words[:4]) if words else title
+
+
+def get_trend_score(keyword):
+    try:
+        pytrends.build_payload([keyword], timeframe="now 1-d", geo="IN")
+        data = pytrends.interest_over_time()
+
+        if data.empty or keyword not in data.columns:
+            return {"trend": "Inactive", "score": 0}
+
+        values = data[keyword].values
+        latest = values[-1]
+        avg = np.mean(values) if len(values) else 0
+
+        if avg == 0 and latest > 0:
+            return {"trend": "Spike", "score": int(latest)}
+        if latest > avg * 1.5:
+            return {"trend": "Spike", "score": int(latest)}
+        elif latest > avg:
+            return {"trend": "Rising", "score": int(latest)}
+        elif latest > 10:
+            return {"trend": "Active", "score": int(latest)}
+        else:
+            return {"trend": "Inactive", "score": int(latest)}
+
+    except Exception:
+        return {"trend": "Unknown", "score": 0}
 
 
 def fetch_all_news():
@@ -101,11 +136,26 @@ def dedupe_sources_within_cluster(cluster):
 
 def rank_news(clusters):
     deduped = [dedupe_sources_within_cluster(cluster) for cluster in clusters]
-    ranked = sorted(
-        deduped,
-        key=lambda x: (x["source_count"], len(x["headline"])),
-        reverse=True
-    )
+    enriched = []
+
+    for cluster in deduped:
+        keyword = extract_keyword(cluster["headline"])
+        trend_data = get_trend_score(keyword)
+
+        score = (
+            cluster["source_count"] * 10 +
+            trend_data["score"]
+        )
+
+        enriched.append({
+            **cluster,
+            "keyword": keyword,
+            "trend": trend_data["trend"],
+            "trend_score": trend_data["score"],
+            "score": score
+        })
+
+    ranked = sorted(enriched, key=lambda x: x["score"], reverse=True)
     return ranked
 
 
@@ -113,4 +163,8 @@ def get_clustered_news():
     articles = fetch_all_news()
     clusters = cluster_news(articles)
     ranked = rank_news(clusters)
-    return ranked[:10]
+
+    top5 = ranked[:5]
+    backup10 = ranked[5:15]
+
+    return top5, backup10
