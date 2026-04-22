@@ -1,8 +1,8 @@
-import news_engine
 import streamlit as st
 import pandas as pd
 import data_fetcher
 import config
+import news_engine
 
 st.set_page_config(page_title="India Market Dashboard", page_icon="📈", layout="wide")
 st.title("📈 India Stock Market Dashboard")
@@ -26,7 +26,7 @@ if not indices_df.empty:
         with cols[i]:
             st.metric(
                 label=row["Index"],
-                value=f"{row['Value']:,}" if row['Value'] != 'N/A' else 'N/A',
+                value=f"{row['Value']:,}" if row["Value"] != "N/A" else "N/A",
                 delta=f"{row['Change %']}%"
             )
 
@@ -39,25 +39,44 @@ if not stocks_df.empty:
     st.dataframe(stocks_df, use_container_width=True, hide_index=True)
 
 st.divider()
-import news_engine  # add this at top if not already
+st.subheader("🔥 Top 5 Stories")
 
-st.subheader("📰 Market News (Clustered)")
+with st.spinner("Loading clustered news..."):
+    top_news, backup_news = news_engine.get_clustered_news()
 
-with st.spinner("Loading news..."):
-    news = news_engine.get_clustered_news()
-
-if news:
-    for story in news:
+if top_news:
+    for story in top_news:
         st.markdown(f"### {story['headline']}")
+        st.caption(
+            f"Trend: {story['trend']} | Trend Score: {story['trend_score']} | Sources: {story['source_count']}"
+        )
 
         for src in story["sources"]:
             st.markdown(f"- [{src['source']}]({src['link']})")
             if src["published"]:
-                st.caption(f"{src['published']}")
+                st.caption(src["published"])
 
         st.divider()
 else:
-    st.info("No news available at the moment.")
+    st.info("No top stories available at the moment.")
+
+st.subheader("📦 Backup Stories")
+
+if backup_news:
+    for story in backup_news:
+        st.markdown(f"### {story['headline']}")
+        st.caption(
+            f"Trend: {story['trend']} | Trend Score: {story['trend_score']} | Sources: {story['source_count']}"
+        )
+
+        for src in story["sources"]:
+            st.markdown(f"- [{src['source']}]({src['link']})")
+            if src["published"]:
+                st.caption(src["published"])
+
+        st.divider()
+else:
+    st.info("No backup stories available at the moment.")
 
 st.subheader("🗓 IPO Calendar")
 with st.spinner("Loading IPO data..."):
