@@ -52,6 +52,8 @@ if news:
 
         for src in story["sources"]:
             st.markdown(f"- [{src['source']}]({src['link']})")
+            if src["published"]:
+                st.caption(f"{src['published']}")
 
         st.divider()
 else:
